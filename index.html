@@ -1,23 +1,210 @@
-<!-- 筛选区（已精简） -->
-<div class="filter-section">
-    <select id="l1Filter" onchange="updateL2(); applyFilters()">
-        <option value="">一级类目(全部)</option>
-    </select>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>文具业绩数据分析看板</title>
+    <style>
+        body { font-family: 'PingFang SC', sans-serif; background: #f4f4f7; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: #ee4d2d; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .desc-box { background: rgba(255,255,255,0.2); padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 14px; }
+        
+        /* 筛选栏样式 */
+        .filter-section { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        input, select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        input:focus, select:focus { border-color: #ee4d2d; }
 
-    <select id="l2Filter" onchange="applyFilters()">
-        <option value="">二级类目(全部)</option>
-    </select>
+        /* 卡片布局 */
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 8px; overflow: hidden; border: 1px solid #eee; transition: 0.3s; position: relative; display: flex; flex-direction: column; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        
+        .region-tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; z-index: 10; }
+        
+        .img-container { width: 100%; height: 220px; background: #fff; display: flex; align-items: center; justify-content: center; cursor: zoom-in; }
+        .img-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .info { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; }
+        .title { font-weight: bold; font-size: 14px; margin-bottom: 10px; height: 38px; line-height: 19px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        
+        .data-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-size: 12px; }
+        .data-item { color: #666; }
+        .data-value { color: #ee4d2d; font-weight: bold; }
 
-    <select id="regionFilter" onchange="applyFilters()">
-        <option value="">站点(全部)</option>
-    </select>
+        .invite-id-box { border: 2px dashed #ee4d2d; padding: 6px; text-align: center; font-size: 16px; font-weight: bold; color: #ee4d2d; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
+        
+        .footer-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #999; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: auto; }
+        #imageModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
 
-    <select id="sortOrder" onchange="applyFilters()">
-        <option value="adoDesc">单量（MTD ADO）↓</option>
-        <option value="adgDesc">销售额（MTD ADG）↓</option>
-        <option value="momAdoDesc">单量增长率（MoM ADO）↓</option>
-        <option value="momAdgDesc">销售额增长率（MoM ADG）↓</option>
-    </select>
+<div class="container">
+    <header>
+        <h1>文具业绩看板 (Stationery Growth Tracker)</h1>
+        <div class="desc-box">💹 实时监控站点增长：支持按单量、销售额及其增长率快速排序，点击 ID 即可复制提报。</div>
+    </header>
 
-    <span id="countDisplay" style="margin-left:auto;font-weight:bold;color:#ee4d2d;"></span>
+    <div class="filter-section">
+        <input type="text" id="searchInput" placeholder="搜索标题/ID..." oninput="debouncedFilter()">
+        <select id="l1Filter" onchange="updateL2(); applyFilters()"><option value="">一级类目(全部)</option></select>
+        <select id="l2Filter" onchange="applyFilters()"><option value="">二级类目(全部)</option></select>
+        <select id="regionFilter" onchange="applyFilters()"><option value="">所有站点</option></select>
+        
+        <select id="sortOrder" onchange="applyFilters()">
+            <option value="default">默认排序</option>
+            <option value="adoDesc">单量 (MTD ADO) ↓</option>
+            <option value="adgDesc">销售额 (MTD ADG) ↓</option>
+            <option value="adoGrowthDesc">单量增长率 (MoM ADO) ↓</option>
+            <option value="adgGrowthDesc">销售额增长率 (MoM ADG) ↓</option>
+        </select>
+        
+        <span id="countDisplay" style="font-weight:bold; color:#ee4d2d; margin-left:auto;"></span>
+    </div>
+
+    <div class="product-grid" id="productGrid"></div>
+    <div style="margin:20px; text-align:center;" id="pagination"></div>
 </div>
+
+<div id="imageModal" onclick="this.style.display='none'"><img id="modalImg" style="max-width:90%; max-height:90%;"></div>
+
+<script>
+    let products = [], filteredData = [], currentPage = 1;
+    const pageSize = 40;
+
+    const cleanId = (str) => str ? str.toString().replace(/^['+]+/, '').replace(/["=\t]/g, '').trim() : "";
+
+    // 核心数据映射：请根据 CSV 实际列索引调整
+    const mapData = (arr) => {
+        return {
+            title: arr[0],
+            imgUrl: arr[3],
+            link: arr[4],
+            l1: arr[5],
+            l2: arr[6],
+            inviteId: cleanId(arr[7]),
+            region: arr[12],        // 站点 grass_region
+            date: arr[11],
+            // 业绩指标 (请确认索引)
+            ado: parseFloat(arr[16]) || 0,        // MTD ADO
+            adg: parseFloat(arr[17]) || 0,        // MTD ADG
+            adoGrowth: parseFloat(arr[18]) || 0,  // MoM ADO
+            adgGrowth: parseFloat(arr[19]) || 0   // MoM ADG
+        };
+    };
+
+    async function loadData() {
+        try {
+            const res = await fetch('data.csv');
+            const text = await res.text();
+            products = text.split(/\r?\n/).slice(1).map((line, index) => {
+                let r = [], cur = '', q = false;
+                for (let c of line) { if (c === '"') q = !q; else if (c === ',' && !q) { r.push(cur.trim()); cur = ''; } else cur += c; }
+                r.push(cur.trim());
+                return r;
+            }).filter(a => a.length >= 10);
+            initFilters(); 
+            applyFilters();
+        } catch (e) { console.error("加载数据失败:", e); }
+    }
+
+    function initFilters() {
+        // 初始化一级类目
+        const l1s = [...new Set(products.map(p => p[5]))].filter(Boolean);
+        l1s.forEach(v => document.getElementById('l1Filter').innerHTML += `<option value="${v}">${v}</option>`);
+        
+        // 初始化站点 (索引 12)
+        const regions = [...new Set(products.map(p => p[12]))].filter(Boolean);
+        regions.forEach(v => document.getElementById('regionFilter').innerHTML += `<option value="${v}">${v}</option>`);
+    }
+
+    function updateL2() {
+        const l1 = document.getElementById('l1Filter').value;
+        const s = document.getElementById('l2Filter');
+        s.innerHTML = '<option value="">二级类目(全部)</option>';
+        [...new Set(products.filter(p => !l1 || p[5] === l1).map(p => p[6]))].filter(Boolean)
+            .forEach(v => s.innerHTML += `<option value="${v}">${v}</option>`);
+    }
+
+    function applyFilters() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        const l1 = document.getElementById('l1Filter').value;
+        const l2 = document.getElementById('l2Filter').value;
+        const region = document.getElementById('regionFilter').value;
+        const sort = document.getElementById('sortOrder').value;
+
+        filteredData = products.filter(arr => {
+            const i = mapData(arr);
+            return (i.title.toLowerCase().includes(q) || i.inviteId.toLowerCase().includes(q)) &&
+                   (!l1 || i.l1 === l1) && 
+                   (!l2 || i.l2 === l2) && 
+                   (!region || i.region === region);
+        });
+
+        // 排序逻辑
+        filteredData.sort((a, b) => {
+            const iA = mapData(a), iB = mapData(b);
+            if (sort === 'adoDesc') return iB.ado - iA.ado;
+            if (sort === 'adgDesc') return iB.adg - iA.adg;
+            if (sort === 'adoGrowthDesc') return iB.adoGrowth - iA.adoGrowth;
+            if (sort === 'adgGrowthDesc') return iB.adgGrowth - iA.adgGrowth;
+            return 0;
+        });
+
+        document.getElementById('countDisplay').innerText = `已筛选：${filteredData.length} 款`;
+        render(filteredData, 1);
+    }
+
+    function render(dataList, page = 1) {
+        currentPage = page;
+        const grid = document.getElementById('productGrid');
+        grid.innerHTML = '';
+        
+        dataList.slice((page - 1) * pageSize, page * pageSize).forEach(arr => {
+            const item = mapData(arr);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="region-tag">${item.region}</div>
+                <div class="img-container" onclick="showModal('${item.imgUrl}')">
+                    <img src="${item.imgUrl}" loading="lazy">
+                </div>
+                <div class="info">
+                    <div class="title" title="${item.title}">${item.title}</div>
+                    <div class="data-row">
+                        <div class="data-item">ADO: <span class="data-value">${item.ado}</span></div>
+                        <div class="data-item">ADG: <span class="data-value">${item.adg}</span></div>
+                        <div class="data-item">O增长: <span class="data-value">${(item.adoGrowth*100).toFixed(1)}%</span></div>
+                        <div class="data-item">G增长: <span class="data-value">${(item.adgGrowth*100).toFixed(1)}%</span></div>
+                    </div>
+                    <div class="invite-id-box" onclick="copyId('${item.inviteId}')">${item.inviteId}</div>
+                    <div class="footer-row">
+                        <span>${item.date}</span>
+                        <a href="${item.link}" target="_blank" style="color:#0056b3; text-decoration:none; font-weight:bold;">查看原品 >>></a>
+                    </div>
+                </div>`;
+            grid.appendChild(card);
+        });
+        renderPagination(dataList.length);
+    }
+
+    function renderPagination(total) {
+        const totalPages = Math.ceil(total / pageSize);
+        const p = document.getElementById('pagination');
+        p.innerHTML = `
+            <button onclick="changePage(-1)" ${currentPage===1?'disabled':''}>上一页</button>
+            <span style="margin:0 10px;">${currentPage}/${totalPages || 1}</span>
+            <button onclick="changePage(1)" ${currentPage>=totalPages?'disabled':''}>下一页</button>`;
+    }
+
+    function changePage(delta) { render(filteredData, currentPage + delta); }
+    function showModal(url) { document.getElementById('modalImg').src = url; document.getElementById('imageModal').style.display = 'flex'; }
+    function copyId(id) { navigator.clipboard.writeText(id); alert('已复制ID: ' + id); }
+    
+    let timer;
+    const debouncedFilter = () => { clearTimeout(timer); timer = setTimeout(applyFilters, 300); };
+
+    window.onload = loadData;
+</script>
+</body>
+</html>
