@@ -9,20 +9,20 @@
         header { background: #ee4d2d; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         
         .filter-section { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; cursor: pointer; }
+        select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; cursor: pointer; font-size: 14px; min-width: 150px; }
         select:hover { border-color: #ee4d2d; }
         
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
         .card { background: white; border-radius: 12px; overflow: hidden; border: 1px solid #eee; transition: 0.3s; position: relative; display: flex; flex-direction: column; }
         .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
         
-        /* 左上角排序标签 */
+        /* TOP 排名标签 */
         .rank-tag { position: absolute; top: 0; left: 0; background: #ee4d2d; color: white; padding: 4px 10px; border-bottom-right-radius: 12px; font-size: 13px; font-weight: bold; z-index: 10; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
         
-        /* 站点标签移至右上方 */
+        /* 站点标签 */
         .region-tag { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); color: #333; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #ddd; z-index: 5; }
         
-        .img-container { width: 100%; height: 200px; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f5f5f5; }
+        .img-container { width: 100%; height: 200px; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
         .img-container img { max-width: 90%; max-height: 90%; object-fit: contain; }
         
         .info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
@@ -43,7 +43,7 @@
 <div class="container">
     <header>
         <h1 style="margin:0; font-size: 24px;">文具快速增长品及高销品看板</h1>
-        <p style="margin:8px 0 0; opacity:0.8; font-size: 14px;">帮助卖家抓住各站点最新趋势、及时上新</p>
+        <p style="margin:8px 0 0; opacity:0.8; font-size: 14px;">快速浏览各站点表现优异的产品</p>
     </header>
 
     <div class="filter-section">
@@ -52,11 +52,10 @@
         <select id="regionFilter" onchange="applyFilters()"><option value="">所有站点</option></select>
         
         <select id="sortOrder" onchange="applyFilters()">
-            <option value="default">默认排序</option>
-            <option value="adoDesc">按单量 (ADO) 降序 ↓</option>
-            <option value="adgDesc">按销售额 (ADG) 降序 ↓</option>
-            <option value="adoGrowthDesc">按单量增长 (MoM O) 降序 ↓</option>
-            <option value="adgGrowthDesc">按销售额增长 (MoM G) 降序 ↓</option>
+            <option value="adoDesc">按单量排序</option>
+            <option value="adgDesc">按销售额排序</option>
+            <option value="adoGrowthDesc">按单量增长排序</option>
+            <option value="adgGrowthDesc">按销售额增长排序</option>
         </select>
         <span id="countDisplay" style="margin-left:auto; font-weight:bold; color:#ee4d2d; font-size: 14px;"></span>
     </div>
@@ -71,7 +70,7 @@
     let products = [], filteredData = [], currentPage = 1;
     const pageSize = 40;
 
-    // 数值解析
+    // 解析数字和百分比
     const n = (v) => {
         if (!v) return 0;
         let s = v.toString().replace('%', '');
@@ -102,8 +101,10 @@
             }).filter(a => a.length >= 8);
             
             initFilters();
-            applyFilters();
-        } catch (e) { console.error("数据加载失败", e); }
+            applyFilters(); 
+        } catch (e) { 
+            console.error("加载失败，请检查文件名 data-2.csv", e); 
+        }
     }
 
     function initFilters() {
@@ -130,17 +131,14 @@
             (!l1 || p[2] === l1) && (!l2 || p[3] === l2) && (!reg || p[4] === reg)
         );
 
-        // 排序执行
-        if (sort !== 'default') {
-            filteredData.sort((a, b) => {
-                const iA = mapData(a), iB = mapData(b);
-                if (sort === 'adoDesc') return iB.ado - iA.ado;
-                if (sort === 'adgDesc') return iB.adg - iA.adg;
-                if (sort === 'adoGrowthDesc') return iB.adoG - iA.adoG;
-                if (sort === 'adgGrowthDesc') return iB.adgG - iA.adgG;
-                return 0;
-            });
-        }
+        filteredData.sort((a, b) => {
+            const iA = mapData(a), iB = mapData(b);
+            if (sort === 'adoDesc') return iB.ado - iA.ado;
+            if (sort === 'adgDesc') return iB.adg - iA.adg;
+            if (sort === 'adoGrowthDesc') return iB.adoG - iA.adoG;
+            if (sort === 'adgGrowthDesc') return iB.adgG - iA.adgG;
+            return 0;
+        });
 
         document.getElementById('countDisplay').innerText = `找到 ${filteredData.length} 款产品`;
         render(1);
@@ -153,7 +151,6 @@
         
         filteredData.slice((page-1)*pageSize, page*pageSize).forEach((arr, index) => {
             const d = mapData(arr);
-            // 计算全局排名
             const globalRank = (currentPage - 1) * pageSize + index + 1;
             
             const card = document.createElement('div');
